@@ -1,36 +1,35 @@
-// ble.js — Cryostat BLE Dashboard
+// ble.js — Cryostat Microtome BLE link for nRF51822 (Web Bluetooth)
 
 const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-const UART_RX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-const UART_TX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_RX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // write
+const UART_TX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // notify
 
-let bleDevice, bleServer, rxChar, txChar;
-let rxBuffer = "";
+let bleDevice = null, bleServer = null, rxChar = null, txChar = null;
 let reconnectTimer = null;
+let rxBuffer = "";
 
 document.addEventListener("DOMContentLoaded", () => {
+  const statusText = document.getElementById("status-text");
+  const statusDot = document.getElementById("status-dot");
+  const logs = document.getElementById("logs");
+
+  const tempEl = document.getElementById("param-temp");
+  const thickEl = document.getElementById("param-thick");
+  const speedEl = document.getElementById("param-speed");
+  const motorEl = document.getElementById("param-motor");
+
   const connectBtn = document.getElementById("connect-btn");
   const disconnectBtn = document.getElementById("disconnect-btn");
-  const sendBtn = document.getElementById("send-btn");
   const startBtn = document.getElementById("start-btn");
   const stopBtn = document.getElementById("stop-btn");
   const resetBtn = document.getElementById("reset-btn");
-  const input = document.getElementById("thickness-input");
-  const logs = document.getElementById("logs");
-  const statusText = document.getElementById("status-text");
-  const statusDot = document.getElementById("status-dot");
 
-  const tempVal = document.getElementById("val-temp");
-  const thickVal = document.getElementById("val-thickness");
-  const speedVal = document.getElementById("val-speed");
-  const motorVal = document.getElementById("val-motor");
-
-  function log(...msg) {
+  function log(msg) {
     const line = document.createElement("div");
-    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg.join(" ")}`;
+    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
     logs.appendChild(line);
     logs.scrollTop = logs.scrollHeight;
-    console.log(...msg);
+    console.log(msg);
   }
 
   function setStatus(connected) {
@@ -46,8 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       bleDevice.addEventListener("gattserverdisconnected", handleDisconnect);
-
-      log("⏳ Connecting to", bleDevice.name, "...");
+      log("⏳ Connecting to " + bleDevice.name + "...");
       bleServer = await bleDevice.gatt.connect();
 
       const service = await bleServer.getPrimaryService(UART_SERVICE);
@@ -58,22 +56,23 @@ document.addEventListener("DOMContentLoaded", () => {
       txChar.addEventListener("characteristicvaluechanged", handleNotification);
 
       setStatus(true);
-      log("✅ Connected to", bleDevice.name);
+      log("✅ Connected to " + bleDevice.name);
     } catch (err) {
-      log("❌ Connection failed:", err.message);
+      log("❌ Connection failed: " + err.message);
     }
   }
 
   function handleDisconnect() {
     log("⚠️ Disconnected from BLE device");
     setStatus(false);
+    rxChar = null;
+    txChar = null;
 
-    if (!reconnectTimer) {
+    if (!reconnectTimer && bleDevice) {
       reconnectTimer = setInterval(async () => {
         try {
-          if (!bleDevice) return;
           if (!bleDevice.gatt.connected) {
-            log("🔄 Trying to reconnect...");
+            log("🔄 Attempting auto-reconnect...");
             bleServer = await bleDevice.gatt.connect();
             const service = await bleServer.getPrimaryService(UART_SERVICE);
             rxChar = await service.getCharacteristic(UART_RX);
@@ -83,20 +82,19 @@ document.addEventListener("DOMContentLoaded", () => {
             setStatus(true);
             clearInterval(reconnectTimer);
             reconnectTimer = null;
-            log("✅ Reconnected successfully");
+            log("✅ Auto-reconnected successfully");
           }
-        } catch (err) {
-          log("⏳ Reconnect failed:", err.message);
+        } catch (e) {
+          log("Reconnect attempt failed: " + e.message);
         }
-      }, 4000);
+      }, 5000);
     }
   }
 
+  // JSON reassembly + parsing
   function handleNotification(event) {
-    const value = event.target.value;
-    const arr = new Uint8Array(value.buffer);
-    const chunk = new TextDecoder().decode(arr);
-    rxBuffer += chunk;
+    const val = new TextDecoder().decode(event.target.value);
+    rxBuffer += val;
 
     let endIdx;
     while ((endIdx = rxBuffer.indexOf("}")) !== -1) {
@@ -105,21 +103,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
       try {
         const data = JSON.parse(jsonStr);
-        log("📥 RX:", jsonStr);
+        log("📥 RX: " + jsonStr);
 
-        if (data.temp !== undefined) tempVal.textContent = `${data.temp.toFixed(1)} °C`;
-        if (data.thickness !== undefined) thickVal.textContent = `${data.thickness.toFixed(1)} µm`;
-        if (data.speed !== undefined) speedVal.textContent = `${data.speed.toFixed(0)} RPM`;
+        if (data.temp !== undefined) tempEl.textContent = data.temp.toFixed(1) + " °C";
+        if (data.thickness !== undefined) thickEl.textContent = data.thickness.toFixed(1) + " µm";
+        if (data.speed !== undefined) speedEl.textContent = data.speed.toFixed(0) + " RPM";
         if (data.motor !== undefined)
-          motorVal.textContent = data.motor ? "ON 🟢" : "OFF 🔴";
-      } catch (err) {
-        log("⚠️ JSON parse error:", err.message);
+          motorEl.textContent = data.motor ? "ON 🟢" : "OFF 🔴";
+      } catch (e) {
+        // ignore incomplete fragments
       }
     }
   }
 
   async function writeToRx(text) {
-    if (!rxChar) return log("⚠️ Not connected");
+    if (!rxChar) {
+      log("⚠️ Not connected.");
+      return;
+    }
     const encoder = new TextEncoder();
     const bytes = encoder.encode(text);
     const MTU = 20;
@@ -127,13 +128,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const slice = bytes.slice(i, i + MTU);
       await rxChar.writeValue(slice);
     }
-    log("📤 TX:", text);
+    log("📤 TX: " + text);
   }
 
-  // UI Button Handlers
+  // Make writeToRx globally available (used by index.html inline script)
+  window.writeToRx = writeToRx;
+
+  // Buttons
   connectBtn.onclick = connectBLE;
   disconnectBtn.onclick = () => bleDevice?.gatt?.disconnect();
-  sendBtn.onclick = () => writeToRx(`THICKNESS:${input.value}`);
   startBtn.onclick = () => writeToRx("START");
   stopBtn.onclick = () => writeToRx("STOP");
   resetBtn.onclick = () => writeToRx("RESET");
