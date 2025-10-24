@@ -1,179 +1,236 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cryostat Microtome Control</title>
-  <link rel="manifest" href="manifest.json" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cryostat Microtome — 3D Control UI with Joystick, LEDs & Telemetry</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #06101d;
-      --card: rgba(255,255,255,0.05);
-      --accent: #12b6b0;
-      --muted: #a0b8bf;
-      --radius: 14px;
-      --shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-    body {
-      font-family: "Inter", Arial, sans-serif;
-      background: linear-gradient(180deg, #050d16, #06101d);
-      color: #e9f6f7;
-      margin: 0; padding: 10px;
-      display: flex; flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-    h1 { margin: 10px 0; color: var(--accent); }
-    .status-bar {
-      display: flex; justify-content: space-between;
-      align-items: center; width: 100%;
-      max-width: 480px; background: var(--card);
-      padding: 10px 16px; border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
-    .dot { width: 12px; height: 12px; border-radius: 50%; background: #b44; }
-    .dot.connected { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-    .param-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 12px; width: 100%; max-width: 480px; margin-top: 16px;
-    }
-    .card {
-      background: var(--card); border-radius: var(--radius);
-      padding: 14px; box-shadow: var(--shadow);
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; text-align: center;
-    }
-    .card h3 { margin: 0; font-size: 0.9rem; color: var(--muted); }
-    .card span { font-size: 1.5rem; font-weight: 600; margin-top: 6px; }
-    .control-section {
-      background: var(--card); border-radius: var(--radius);
-      width: 100%; max-width: 480px;
-      padding: 16px; margin-top: 16px;
-      box-shadow: var(--shadow);
-    }
-    .input-group {
-      display: flex; align-items: center; justify-content: space-between;
-      background: rgba(255,255,255,0.03);
-      border-radius: 10px; padding: 6px 10px; margin-top: 8px;
-    }
-    input[type="number"] {
-      width: 100%; background: transparent; color: #fff;
-      border: none; font-size: 1.2rem; text-align: center; outline: none;
-      -moz-appearance: textfield;
-    }
-    input::-webkit-outer-spin-button,
-    input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    .arrow-btn {
-      background: none; border: none; color: var(--accent);
-      font-size: 1.4rem; cursor: pointer;
-    }
-    .btn-row {
-      display: flex; flex-wrap: wrap;
-      justify-content: center; gap: 10px; margin-top: 14px;
-    }
-    button {
-      background: var(--accent); color: #041d1c; border: none;
-      padding: 10px 18px; border-radius: 8px;
-      font-weight: 700; cursor: pointer;
-    }
-    button.ghost {
-      background: transparent; color: var(--muted);
-      border: 1px solid var(--muted);
-    }
-    #logs {
-      width: 100%; max-width: 480px;
-      height: 180px; overflow-y: auto;
-      background: rgba(255,255,255,0.05);
-      border-radius: var(--radius); padding: 10px;
-      font-family: monospace; font-size: 13px;
-      color: var(--muted); margin-top: 16px;
-    }
-    footer {
-      color: var(--muted); font-size: 12px;
-      margin-top: 20px; text-align: center;
-    }
-    @media (max-width: 600px) {
-      h1 { font-size: 1.3rem; }
-      .card span { font-size: 1.3rem; }
-      .btn-row button { flex: 1; }
-    }
+    :root { --bg:#e8f0f2; --card:#fff; --accent:#00bfa6; --accent-dark:#009b85; --led-on:#00ff9c; --led-off:#d1d6d9; }
+    *{box-sizing:border-box} html,body{height:100%;margin:0;font-family:Inter,system-ui,sans-serif}
+    body{display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#dfe9eb,#f7fcfc)}
+    .phone{width:400px;height:850px;border-radius:40px;padding:20px;background:linear-gradient(145deg,#f9ffff,#e1ebeb);box-shadow:20px 20px 50px rgba(0,0,0,.25),-10px -10px 30px rgba(255,255,255,.7);display:flex;flex-direction:column}
+    .title{background:linear-gradient(145deg,#eaf5f5,#cce1e1);padding:10px 20px;border-radius:16px;font-weight:700}
+    .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+    .tile{height:86px;border-radius:14px;background:linear-gradient(145deg,var(--accent),var(--accent-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:6px 6px 12px rgba(0,0,0,.18),-6px -6px 12px rgba(255,255,255,.12)}
+    .control-card{margin-top:16px;background:linear-gradient(145deg,#f1f7f7,#d6e0e0);padding:14px;border-radius:14px;display:flex;gap:12px;align-items:center}
+    .slider{flex:1}
+    input[type=range]{width:100%;height:12px;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent-dark));-webkit-appearance:none}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:linear-gradient(145deg,#fff,#cbd7d7);box-shadow:3px 3px 8px rgba(0,0,0,.18)}
+    .meter{width:48px;height:120px;border-radius:12px;background:linear-gradient(145deg,#f1f6f6,#c9dada);position:relative;overflow:hidden}
+    .meter-fill{position:absolute;bottom:0;width:100%;background:linear-gradient(180deg,var(--accent),var(--accent-dark));height:50%;transition:height .15s linear}
+    .leds{display:flex;gap:12px;justify-content:center;margin-top:12px}
+    .led{width:16px;height:16px;border-radius:50%;background:var(--led-off);box-shadow:inset 0 0 6px rgba(0,0,0,.25);transition:all .18s}
+    .led.on{background:var(--led-on);box-shadow:0 0 10px var(--led-on)}
+    .joystick{width:150px;height:150px;border-radius:50%;margin:12px auto;background:radial-gradient(circle at 30% 30%,#eaf5f5,#cce1e1);position:relative;box-shadow:inset 10px 10px 20px #b3c3c3,inset -10px -10px 20px #fff}
+    .stick{width:60px;height:60px;border-radius:50%;background:linear-gradient(145deg,#fff,#c6d5d5);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);box-shadow:6px 6px 12px rgba(0,0,0,.3);transition:transform .06s linear}
+    .bottom{margin-top:auto;display:flex;flex-direction:column;gap:12px}
+    .button-row{display:flex;gap:12px;align-items:center;justify-content:center}
+    .btn{border:none;border-radius:50%;padding:0;color:#fff;background:linear-gradient(145deg,var(--accent),var(--accent-dark));box-shadow:8px 8px 20px rgba(0,0,0,.25);cursor:pointer}
+    .btn-small{width:64px;height:64px;font-weight:700}
+    .btn-large{width:110px;height:110px;font-weight:800;font-size:18px}
+    .connect{display:flex;gap:10px;align-items:center;justify-content:center}
+    .toggle{width:50px;height:28px;border-radius:20px;padding:3px;background:linear-gradient(145deg,#e1f3f3,#b5c8c8);display:flex;align-items:center}
+    .thumb{width:22px;height:22px;border-radius:50%;background:linear-gradient(145deg,#fff,#b5c5c5);transform:translateX(0);transition:transform .25s}
+    .toggle.on{background:linear-gradient(145deg,var(--accent),var(--accent-dark))}
+    .toggle.on .thumb{transform:translateX(22px)}
+    .transport{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:8px}
+    select,input[type=text]{padding:8px;border-radius:8px;border:1px solid #d7e5e5}
+    .small{font-size:12px;color:#5b6f73}
+    .log{height:84px;overflow:auto;background:#0b1111;color:#b9fff0;padding:8px;border-radius:8px;font-family:monospace;font-size:12px}
   </style>
 </head>
 <body>
-  <h1>Cryostat Microtome</h1>
+  <div class="phone" role="application" aria-label="Cryostat control">
+    <div class="title">Cryostat Control — Telemetry Demo</div>
 
-  <!-- 🔹 STATUS BAR -->
-  <div class="status-bar">
-    <div>
-      <strong>Status:</strong> <span id="status-text">Disconnected</span>
+    <div class="tiles">
+      <div class="tile">Temperature</div>
+      <div class="tile">Thickness</div>
+      <div class="tile">Speed</div>
+      <div class="tile">Motor</div>
     </div>
-    <div class="dot" id="status-dot"></div>
+
+    <div class="control-card">
+      <div class="slider">
+        <label class="small" for="range">Thickness</label>
+        <input id="range" type="range" min="0" max="100" value="50">
+      </div>
+      <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+    </div>
+
+    <div class="leds"><div class="led" id="led1"></div><div class="led" id="led2"></div><div class="led" id="led3"></div></div>
+
+    <div class="joystick" id="joystick" aria-label="joystick">
+      <div class="stick" id="stick" role="application"></div>
+    </div>
+
+    <div class="transport">
+      <label class="small">Transport</label>
+      <select id="transportSelect">
+        <option value="console">Console (default)</option>
+        <option value="websocket">WebSocket</option>
+        <option value="ble">Web Bluetooth (experimental)</option>
+      </select>
+      <input id="wsUrl" type="text" placeholder="ws://example:8080" style="display:none;width:140px">
+      <input id="bleService" type="text" placeholder="Service UUID (optional)" style="display:none;width:140px">
+      <button id="connectTransport" class="small">Connect</button>
+    </div>
+
+    <div class="log" id="log">log: ready</div>
+
+    <div class="bottom">
+      <div class="button-row">
+        <button class="btn btn-small" id="send">Send</button>
+        <button class="btn btn-large" id="start">Start</button>
+        <button class="btn btn-small" id="stop">Stop</button>
+      </div>
+      <div class="connect"><div>Connect</div><div id="toggle" class="toggle"><div class="thumb"></div></div></div>
+    </div>
   </div>
 
-  <!-- 🔹 PARAMETER DISPLAY -->
-  <div class="param-grid">
-    <div class="card"><h3>Temperature</h3><span id="param-temp">-- °C</span></div>
-    <div class="card"><h3>Thickness</h3><span id="param-thick">-- µm</span></div>
-    <div class="card"><h3>Speed</h3><span id="param-speed">-- RPM</span></div>
-    <div class="card"><h3>Motor</h3><span id="param-motor">--</span></div>
-  </div>
-
-  <!-- 🔹 CONTROL PANEL -->
-  <div class="control-section">
-    <h3 style="color:var(--accent);margin-bottom:8px;">Set Thickness</h3>
-    <div class="input-group">
-      <button class="arrow-btn" id="dec-btn">−</button>
-      <input id="thickness-input" type="number" min="0" max="100" step="0.1" value="5" />
-      <button class="arrow-btn" id="inc-btn">+</button>
-    </div>
-    <div class="btn-row">
-      <button id="send-btn">📤 Send</button>
-      <button id="start-btn">▶ Start</button>
-      <button id="stop-btn">⏸ Stop</button>
-      <button id="reset-btn">🔄 Reset</button>
-      <button id="connect-btn" class="ghost">🔗 Connect</button>
-      <button id="disconnect-btn" class="ghost">🔌 Disconnect</button>
-    </div>
-  </div>
-
-  <!-- 🔹 LOGS -->
-  <div id="logs"></div>
-
-  <footer>2026 Designed for nRF51822 BLE | Responsive for Android & iPhone</footer>
-
-  <!-- BLE script -->
-  <script type="module" src="ble.js" defer></script>
-
-  <!-- UI Logic -->
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const incBtn = document.getElementById("inc-btn");
-      const decBtn = document.getElementById("dec-btn");
-      const sendBtn = document.getElementById("send-btn");
-      const input = document.getElementById("thickness-input");
-      const logs = document.getElementById("logs");
+    // Telemetry implementation: sends {x,y} normalized -100..100 as JSON to chosen transport.
+    window.addEventListener('DOMContentLoaded', () => {
+      // DOM
+      const range = document.getElementById('range');
+      const meter = document.getElementById('meterFill');
+      const stick = document.getElementById('stick');
+      const joystick = document.getElementById('joystick');
+      const leds = [document.getElementById('led1'), document.getElementById('led2'), document.getElementById('led3')];
+      const transportSelect = document.getElementById('transportSelect');
+      const wsUrl = document.getElementById('wsUrl');
+      const bleService = document.getElementById('bleService');
+      const connectBtn = document.getElementById('connectTransport');
+      const logEl = document.getElementById('log');
+      const toggle = document.getElementById('toggle');
+      const startBtn = document.getElementById('start');
+      const sendBtn = document.getElementById('send');
+      const stopBtn = document.getElementById('stop');
 
-      function log(msg) {
-        const line = document.createElement("div");
-        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        logs.appendChild(line);
-        logs.scrollTop = logs.scrollHeight;
+      // transport state
+      let ws = null; // WebSocket
+      let bleDevice = null; let bleServer = null; let bleChar = null; // Web Bluetooth
+      let telemetryEnabled = false;
+
+      // helpers
+      function log(...args){ const s = args.map(a => (typeof a==='object'?JSON.stringify(a):String(a))).join(' '); logEl.textContent = new Date().toLocaleTimeString() + ' ' + s + '\\n' + logEl.textContent; }
+      function setLEDs(on){ leds.forEach(l => l.classList.toggle('on', on)); }
+
+      // range
+      range.addEventListener('input', e => { meter.style.height = e.target.value + '%'; });
+
+      // toggle connect (UI)
+      toggle.addEventListener('click', ()=>{ toggle.classList.toggle('on'); });
+
+      // transport UI show/hide
+      transportSelect.addEventListener('change', ()=>{
+        const v = transportSelect.value;
+        wsUrl.style.display = v==='websocket'? 'inline-block':'none';
+        bleService.style.display = v==='ble'? 'inline-block':'none';
+      });
+
+      // connect button
+      connectBtn.addEventListener('click', async ()=>{
+        const t = transportSelect.value;
+        if(t==='websocket'){
+          const url = wsUrl.value.trim();
+          if(!url){ log('WebSocket URL empty'); return; }
+          try{ ws = new WebSocket(url); ws.onopen = ()=>{ log('WS open', url); connectBtn.textContent='Disconnect'; }; ws.onclose = ()=>{ log('WS closed'); connectBtn.textContent='Connect'; ws=null; }; ws.onerror = (e)=>{ log('WS error', e); } ; ws.onmessage = (m)=>{ log('WS rcv', m.data); } }catch(err){ log('WS connect fail',err);} 
+        }else if(t==='ble'){
+          try{
+            log('Requesting BLE device...');
+            const opts = {};
+            if(bleService.value.trim()) opts.optionalServices = [bleService.value.trim()];
+            bleDevice = await navigator.bluetooth.requestDevice({acceptAllDevices:true, optionalServices: opts.optionalServices||[]});
+            bleServer = await bleDevice.gatt.connect();
+            log('BLE connected to', bleDevice.name||bleDevice.id);
+            // Note: user must provide service+char to write — this is a skeleton
+            // We'll try to find a writable characteristic automatically if possible.
+            const services = opts.optionalServices && opts.optionalServices.length? opts.optionalServices : await bleServer.getPrimaryServices();
+            // Try to find a writable characteristic
+            for(const s of services){
+              try{
+                const chars = await s.getCharacteristics();
+                for(const c of chars){
+                  if(c.properties.write || c.properties.writeWithoutResponse){ bleChar = c; log('Found writable characteristic', c.uuid); break; }
+                }
+                if(bleChar) break;
+              }catch(e){/* ignore */}
+            }
+            if(!bleChar) log('No writable characteristic found — cannot send data until service/char is specified');
+          }catch(err){ log('BLE error', err.message||err); }
+        }else{
+          log('Console transport selected: telemetry will print to console/log');
+        }
+      });
+
+      // connect keyboard handlers (start/stop/send)
+      startBtn.addEventListener('click', ()=>{ telemetryEnabled = true; setLEDs(true); startBtn.textContent='Running'; log('Telemetry started'); });
+      stopBtn.addEventListener('click', ()=>{ telemetryEnabled = false; setLEDs(false); startBtn.textContent='Start'; log('Telemetry stopped'); });
+      sendBtn.addEventListener('click', ()=>{ log('Manual send: thickness', range.value); });
+
+      // telemetry send function — normalize to -100..100
+      function sendTelemetry(xNorm, yNorm){
+        const payload = {x: Math.round(xNorm*100), y: Math.round(yNorm*100)}; // -100..100
+        const t = transportSelect.value;
+        // 1) console
+        if(t==='console' || t==='websocket' || t==='ble'){
+          log('TX', payload);
+        }
+        // 2) WebSocket
+        if(ws && ws.readyState===WebSocket.OPEN){ try{ ws.send(JSON.stringify(payload)); }catch(e){ log('WS send err', e); } }
+        // 3) BLE - write as ASCII JSON (fastest portable) if char available
+        if(bleChar){
+          try{
+            const text = JSON.stringify(payload);
+            const encoder = new TextEncoder();
+            const data = encoder.encode(text);
+            // writeWithoutResponse if supported otherwise write
+            if(bleChar.properties.writeWithoutResponse) awaitWrite(bleChar, data, true);
+            else awaitWrite(bleChar, data, false);
+          }catch(e){ log('BLE write err', e); }
+        }
       }
 
-      incBtn.onclick = () => {
-        input.stepUp();
-        log("Increased thickness → " + input.value);
-      };
-      decBtn.onclick = () => {
-        input.stepDown();
-        log("Decreased thickness → " + input.value);
-      };
-      sendBtn.onclick = () => {
-        const val = input.value;
-        log("📤 Sending thickness: " + val);
-        // Hook with BLE: if global writeToRx exists
-        if (window.writeToRx) window.writeToRx(`THICKNESS:${val}`);
-      };
+      // helper to await char write (wrap in promise)
+      function awaitWrite(characteristic, data, withoutResponse){
+        return characteristic.writeValueWithoutResponse ? characteristic.writeValueWithoutResponse(data) : characteristic.writeValue(data);
+      }
+
+      // joystick logic: calculate normalized x,y (-1..1) and throttle sends
+      let lastSend = 0; const SEND_INTERVAL = 40; // ms
+      function handleJoystick(xPx, yPx){
+        const rect = joystick.getBoundingClientRect();
+        const max = rect.width/3; // clamp
+        const dx = Math.max(-max, Math.min(max, xPx));
+        const dy = Math.max(-max, Math.min(max, yPx));
+        const nx = dx / max; const ny = dy / max; // -1..1
+        // move stick visually
+        stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        // send at interval
+        const now = performance.now();
+        if(telemetryEnabled && now - lastSend >= SEND_INTERVAL){ lastSend = now; sendTelemetry(nx, ny); }
+      }
+
+      // pointer events for nicer cross-device support
+      let activePointer = null;
+      joystick.addEventListener('pointerdown', (ev)=>{ joystick.setPointerCapture(ev.pointerId); activePointer = ev.pointerId; onPointerMove(ev); telemetryEnabled = telemetryEnabled || false; });
+      joystick.addEventListener('pointermove', (ev)=>{ if(activePointer===ev.pointerId) onPointerMove(ev); });
+      joystick.addEventListener('pointerup', (ev)=>{ if(activePointer===ev.pointerId){ activePointer=null; stick.style.transform='translate(-50%,-50%)'; } });
+      joystick.addEventListener('pointerleave', ()=>{ if(!activePointer){ stick.style.transform='translate(-50%,-50%)'; } });
+
+      function onPointerMove(ev){ const rect = joystick.getBoundingClientRect(); const x = ev.clientX - rect.left - rect.width/2; const y = ev.clientY - rect.top - rect.height/2; const max = rect.width/3; const dist = Math.min(Math.sqrt(x*x+y*y), max); const ang = Math.atan2(y,x); const dx = dist*Math.cos(ang); const dy = dist*Math.sin(ang); handleJoystick(dx, dy); }
+
+      // keyboard: WASD / arrows - send single-step impulses
+      window.addEventListener('keydown', (ev)=>{
+        if(!telemetryEnabled) return; const step = 0.12; let vx=0, vy=0; if(ev.key==='ArrowUp'||ev.key==='w') vy=-step; if(ev.key==='ArrowDown'||ev.key==='s') vy=step; if(ev.key==='ArrowLeft'||ev.key==='a') vx=-step; if(ev.key==='ArrowRight'||ev.key==='d') vx=step; if(vx||vy) sendTelemetry(vx, vy);
+      });
+
+      // expose for debugging
+      window.__telemetry = { sendTelemetry, connectWS: ()=>connectBtn.click(), wsRef: ()=>ws };
+
+      log('Ready — choose transport and press Connect (if needed). Default payload: {x,y} -100..100');
     });
   </script>
 </body>
