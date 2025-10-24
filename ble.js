@@ -1,4 +1,4 @@
-// ble.js — for Cryostat Microtome (nRF51822 BLE JSON parser)
+// ble.js — Cryostat Microtome BLE Controller + Telemetry Parser (nRF51822)
 
 const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
 const UART_RX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
@@ -6,13 +6,18 @@ const UART_TX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
 let bleDevice, bleServer, rxChar, txChar;
 let rxBuffer = "";
+let joystickActive = false;
 
 window.addEventListener("DOMContentLoaded", () => {
   const logEl = document.getElementById("log");
-  const connectBtn = document.getElementById("connectTransport");
+  const bleStatus = document.getElementById("ble-status");
   const sendBtn = document.getElementById("send");
   const startBtn = document.getElementById("start");
   const stopBtn = document.getElementById("stop");
+  const range = document.getElementById("range");
+  const meter = document.getElementById("meterFill");
+  const stick = document.getElementById("stick");
+  const joystick = document.getElementById("joystick");
 
   const tileTemp = document.getElementById("tile-temp");
   const tileThick = document.getElementById("tile-thick");
@@ -26,12 +31,13 @@ window.addEventListener("DOMContentLoaded", () => {
     console.log(...msg);
   }
 
-  function setLEDs(on) {
-    leds.forEach(l => l.classList.toggle("on", on));
+  function setStatus(connected) {
+    bleStatus.classList.toggle("connected", connected);
+    leds.forEach(l => l.classList.toggle("on", connected));
   }
 
-  // Connect to BLE
-  connectBtn.onclick = async () => {
+  // BLE Connect
+  async function connectBLE() {
     try {
       log("🔗 Requesting Cryostat BLE device...");
       bleDevice = await navigator.bluetooth.requestDevice({
@@ -39,49 +45,43 @@ window.addEventListener("DOMContentLoaded", () => {
         optionalServices: [UART_SERVICE],
       });
       bleDevice.addEventListener("gattserverdisconnected", onDisconnect);
-
       log("⏳ Connecting...");
       bleServer = await bleDevice.gatt.connect();
       const service = await bleServer.getPrimaryService(UART_SERVICE);
       rxChar = await service.getCharacteristic(UART_RX);
       txChar = await service.getCharacteristic(UART_TX);
-
       await txChar.startNotifications();
       txChar.addEventListener("characteristicvaluechanged", handleNotification);
-
-      log("✅ Connected to", bleDevice.name);
-      setLEDs(true);
-    } catch (err) {
-      log("❌ BLE error:", err.message);
+      setStatus(true);
+      log("✅ Connected to " + bleDevice.name);
+    } catch (e) {
+      log("❌ BLE error:", e.message);
     }
-  };
-
-  // Disconnect
-  function onDisconnect() {
-    setLEDs(false);
-    log("⚠️ Device disconnected");
   }
 
-  // Parse incoming JSON data
+  function onDisconnect() {
+    setStatus(false);
+    log("⚠️ BLE device disconnected");
+  }
+
+  // Handle BLE Notifications
   function handleNotification(event) {
     const chunk = new TextDecoder().decode(event.target.value);
     rxBuffer += chunk;
-
     let endIdx;
     while ((endIdx = rxBuffer.indexOf("}")) !== -1) {
       const jsonStr = rxBuffer.slice(0, endIdx + 1);
       rxBuffer = rxBuffer.slice(endIdx + 1);
       try {
         const data = JSON.parse(jsonStr);
-        log("📥 RX:", jsonStr);
         updateUI(data);
-      } catch (e) {
-        // ignore incomplete fragments
+        log("📥 RX: " + jsonStr);
+      } catch (err) {
+        // Ignore partial fragments
       }
     }
   }
 
-  // Update UI elements
   function updateUI(data) {
     if (data.temp !== undefined)
       tileTemp.textContent = `Temperature: ${data.temp.toFixed(1)} °C`;
@@ -99,26 +99,63 @@ window.addEventListener("DOMContentLoaded", () => {
     const bytes = encoder.encode(text);
     const MTU = 20;
     for (let i = 0; i < bytes.length; i += MTU) {
-      const slice = bytes.slice(i, i + MTU);
-      await rxChar.writeValue(slice);
+      await rxChar.writeValue(bytes.slice(i, i + MTU));
     }
-    log("📤 TX:", text);
+    log("📤 TX: " + text);
   }
 
-  // Buttons
+  // Button handlers
   sendBtn.onclick = async () => {
-    const val = document.getElementById("range").value;
-    await writeToRx(`THICKNESS:${val}`);
-    log(`📤 Sent thickness: ${val}`);
+    await writeToRx(`THICKNESS:${range.value}`);
   };
+  startBtn.onclick = async () => writeToRx("START");
+  stopBtn.onclick = async () => writeToRx("STOP");
 
-  startBtn.onclick = async () => {
-    await writeToRx("START");
-    setLEDs(true);
-  };
+  // Connect automatically on load
+  connectBLE();
 
-  stopBtn.onclick = async () => {
-    await writeToRx("STOP");
-    setLEDs(false);
-  };
+  // Range updates
+  range.addEventListener("input", e => {
+    meter.style.height = e.target.value + "%";
+  });
+
+  // Joystick handling
+  let activePointer = null;
+  let lastSend = 0;
+  const SEND_INTERVAL = 100; // ms between BLE sends
+
+  joystick.addEventListener("pointerdown", ev => {
+    joystick.setPointerCapture(ev.pointerId);
+    activePointer = ev.pointerId;
+    joystickActive = true;
+    onPointerMove(ev);
+  });
+
+  joystick.addEventListener("pointermove", ev => {
+    if (activePointer === ev.pointerId) onPointerMove(ev);
+  });
+
+  joystick.addEventListener("pointerup", () => {
+    activePointer = null;
+    joystickActive = false;
+    stick.style.transform = "translate(-50%,-50%)";
+    writeToRx(JSON.stringify({ x: 0, y: 0 })); // send stop
+  });
+
+  function onPointerMove(ev) {
+    const rect = joystick.getBoundingClientRect();
+    const x = ev.clientX - rect.left - rect.width / 2;
+    const y = ev.clientY - rect.top - rect.height / 2;
+    const max = rect.width / 3;
+    const dx = Math.max(-max, Math.min(max, x));
+    const dy = Math.max(-max, Math.min(max, y));
+    stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    const nx = (dx / max).toFixed(2);
+    const ny = (dy / max).toFixed(2);
+    const now = performance.now();
+    if (txChar && now - lastSend >= SEND_INTERVAL) {
+      lastSend = now;
+      writeToRx(JSON.stringify({ x: nx, y: ny }));
+    }
+  }
 });
