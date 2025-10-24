@@ -5,7 +5,7 @@
   "display": "standalone",
   "background_color": "#071026",
   "theme_color": "#12b6b0",
-  "description": "Cryostat control UI for nRF51822 (Web Bluetooth)",
+  "description": "2026 Cryostat control UI for nRF51822 (Web Bluetooth)",
   "icons": [
     {
       "src": "images/icons/icon-192.png",
