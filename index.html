@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Cryostat Microtome — 3D Control UI with Auto Mode</title>
+  <title>Cryostat Microtome — Auto Mode Animation</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root { --bg:#e8f0f2; --card:#fff; --accent:#00bfa6; --accent-dark:#009b85; --led-on:#00ff9c; --led-off:#d1d6d9; }
@@ -14,8 +14,16 @@
     .status-dot{width:14px;height:14px;border-radius:50%;background:#b44;box-shadow:0 0 6px #b44;}
     .status-dot.connected{background:var(--accent);box-shadow:0 0 8px var(--accent);}
     .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
-    .tile{height:86px;border-radius:14px;background:linear-gradient(145deg,var(--accent),var(--accent-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;text-align:center;box-shadow:6px 6px 12px rgba(0,0,0,.18),-6px -6px 12px rgba(255,255,255,.12)}
+    .tile{height:86px;border-radius:14px;background:linear-gradient(145deg,var(--accent),var(--accent-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;text-align:center;box-shadow:6px 6px 12px rgba(0,0,0,.18),-6px -6px 12px rgba(255,255,255,.12);transition:all .3s ease}
     .tile.auto-on{background:linear-gradient(145deg,#ffb100,#e88f00);}
+    /* 🔁 Auto mode pulsing animation */
+    @keyframes pulse {
+      0% { transform:scale(1); box-shadow:0 0 10px rgba(255,180,0,0.6); }
+      50% { transform:scale(1.05); box-shadow:0 0 25px rgba(255,200,0,0.9); }
+      100% { transform:scale(1); box-shadow:0 0 10px rgba(255,180,0,0.6); }
+    }
+    .tile.auto-anim { animation:pulse 1.8s infinite ease-in-out; }
+
     .control-card{margin-top:16px;background:linear-gradient(145deg,#f1f7f7,#d6e0e0);padding:14px;border-radius:14px;display:flex;gap:12px;align-items:center}
     .slider{flex:1}
     input[type=range]{width:100%;height:12px;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent-dark));-webkit-appearance:none}
