@@ -32,6 +32,11 @@
     .btn-small{width:64px;height:64px;font-weight:700}
     .btn-large{width:110px;height:110px;font-weight:800;font-size:18px}
     .log{height:84px;overflow:auto;background:#0b1111;color:#b9fff0;padding:8px;border-radius:8px;font-family:monospace;font-size:12px}
+    .connect{display:flex;justify-content:center;align-items:center;margin-top:10px;gap:10px;}
+    .toggle{width:60px;height:30px;border-radius:20px;padding:3px;background:linear-gradient(145deg,#e1f3f3,#b5c8c8);display:flex;align-items:center;cursor:pointer;}
+    .thumb{width:24px;height:24px;border-radius:50%;background:linear-gradient(145deg,#fff,#b5c5c5);transform:translateX(0);transition:transform .25s;}
+    .toggle.on{background:linear-gradient(145deg,var(--accent),var(--accent-dark));}
+    .toggle.on .thumb{transform:translateX(30px);}
   </style>
 </head>
 <body>
@@ -59,6 +64,11 @@
     <div class="leds"><div class="led" id="led1"></div><div class="led" id="led2"></div><div class="led" id="led3"></div></div>
 
     <div class="joystick" id="joystick"><div class="stick" id="stick"></div></div>
+
+    <div class="connect">
+      <span class="small">BLE Device</span>
+      <div id="toggle" class="toggle"><div class="thumb"></div></div>
+    </div>
 
     <div class="log" id="log">log: ready</div>
 
