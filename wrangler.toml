@@ -1,3 +1,5 @@
         name = "my-worker"
 main = "src/index.js"   # or "index.js" if it's at the root
 compatibility_date = "2025-10-25"
+# wrangler.toml
+name = 'esp32blee'
